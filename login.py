@@ -1,6 +1,5 @@
 import streamlit as st
 import boto3
-from chatapplication import user_details_page
 
 
 USER_POOL_ID = st.secrets["USER_POOL_ID"]
@@ -8,6 +7,7 @@ CLIENT_ID = st.secrets["CLIENT_ID"]
 REGION = st.secrets["REGION"]
 IDENTITYPOOLID = st.secrets["IDENTITY_POOL_ID"]
 ACCOUNTID = st.secrets["ACCOUNT_ID"]
+
 
 def authenticate(username, password):
     try:
@@ -36,17 +36,16 @@ def getuser(idtoken, access_token):
                  AccessToken=access_token
         )   
         username = user["Username"]
-        response = client.get_id(
-            AccountId=ACCOUNTID,
-            IdentityPoolId=IDENTITYPOOLID,	
-            Logins={
-                f'cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}': idtoken
-            }
-        )
-        identityId = response['IdentityId']
         logins = {
             f'cognito-idp.{REGION}.amazonaws.com/{USER_POOL_ID}': idtoken
         }
+        response = client.get_id(
+            AccountId=ACCOUNTID,
+            IdentityPoolId=IDENTITYPOOLID,	
+            Logins=logins
+        )
+        identityId = response['IdentityId']
+        
         responsee = client.get_credentials_for_identity(
                 IdentityId=identityId,
                 Logins=logins
@@ -60,6 +59,7 @@ def getuser(idtoken, access_token):
         aws_access_key_id=accesskeyID,
         aws_secret_access_key=secretkey,
         aws_session_token=sessiontoken)
+
         responseforUserid = sts_client.get_caller_identity()
         userid = responseforUserid["UserId"]
         arn  = responseforUserid["Arn"]
@@ -72,7 +72,7 @@ def getuser(idtoken, access_token):
             "username": username
         }
         st.session_state['user'] = userdata
-        st.session_state.runpage = user_details_page
+        # st.session_state.runpage = user_details_page
         st.experimental_rerun()
 
     except Exception as e:
@@ -125,29 +125,6 @@ def respond_to_auth_challenge(username, new_password, session):
 
 
 
-def login():
-    global user_data
-    st.title("Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-
-    if st.button("Login"):
-        auth_response = authenticate(username, password)
-        if auth_response:
-            user_data = auth_response
-            if 'ChallengeName' in auth_response and auth_response['ChallengeName'] == 'NEW_PASSWORD_REQUIRED':
-                # st.warning("New password is required. Please reset your password.")
-                update_password(username, password, auth_response['Session'])
-            else:
-                st.success("Authentication successful!")
-                st.success("Waiting for Other Services Access verification")
-                st.session_state['auth_response'] = auth_response
-                st.session_state['isuserloggedin'] = True
-                id_token = auth_response['AuthenticationResult']['IdToken']
-                access_token = auth_response['AuthenticationResult']['AccessToken']
-                getuser(id_token, access_token)
-                
-                
 
 def update_password(username,password, session):
     st.header("Updating password")
